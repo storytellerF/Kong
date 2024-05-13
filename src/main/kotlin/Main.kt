@@ -64,16 +64,26 @@ private fun Frame(startProcess: (() -> Unit) -> Unit) {
             var devices by remember {
                 mutableStateOf<List<String>>(emptyList())
             }
+            DisposableEffect(devices, current) {
+                if (!devices.contains(current)) current = null
+                onDispose {  }
+            }
             Button({
                 startProcess {
                     val p = ProcessBuilder("adb", "devices").start()
                     val readText = p.inputStream.bufferedReader().readText()
                     val code = p.waitFor()
                     if (code == 0) {
-                        devices = readText.split("\n").let {
+                        devices = readText.split(Pattern.compile("[\r\n]+")).let {
                             it.subList(1, it.size)
+                        }.filter {
+                            it.isNotEmpty()
                         }.map {
-                            it.split(Pattern.compile("\\s+")).first()
+                            it.split(Pattern.compile("\\s+"))
+                        }.filter {
+                            it[1] != "offline"
+                        }.map {
+                            it.first()
                         }
                     } else {
                         println(p.errorStream.bufferedReader().readText())
